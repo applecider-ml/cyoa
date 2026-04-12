@@ -53,8 +53,11 @@ python 4_llm_triage/triage.py \
     --top-n 50
 ```
 
-### 5. Integration & Active Learning (`5_final_underconstruction/`)
-Pushes the vetted anomalies to the UI layer using the REST API. Human reviewers inspect these targets and provide feedback tags on the interface. The `retrain.py` module periodically retrieves these tags to automatically update the Isolation Forest decision boundaries. [STILL UNDER CONSTRUCTION]
+### 5. Integration & Active Learning (`5_active_learning/`)
+Pushes the vetted anomalies to the UI layer using the REST API. Human reviewers inspect these targets and provide binary feedback tags natively inside the Fritz app. The `retrain.py` loop periodically retrieves these annotations to automatically synthesize new datasets (combining human clicks, LLM reviews, and statistical pseudo-labels) to update the Isolation Forest decision boundaries seamlessly using `HistGradientBoosting`.
+
+### 6. SkyPortal React UI (`6_skyportal_ui_patch/`)
+Contains the frontend `CYOAWidget.jsx` module designed to inject cleanly into the SkyPortal interface. This React component renders the AI astrophysics reasoning alongside the Active Learning triage buttons. 
 
 ## 🚀 Fully Automated Nightly Run
 
