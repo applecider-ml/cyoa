@@ -25,9 +25,9 @@ DEFAULT_DEST = os.path.join(os.path.dirname(__file__), "models")
 
 # Expected artifacts after download
 EXPECTED_FILES = [
-    "best_model.pt",          # RTF Transformer Autoencoder checkpoint
-    "isolation_forest.pkl",   # Fitted scikit-learn Isolation Forest
-    "train_config.json",      # Model hyperparameters & metadata
+    "best_model.pt",  # RTF Transformer Autoencoder checkpoint
+    "isolation_forest.pkl",  # Fitted scikit-learn Isolation Forest
+    "train_config.json",  # Model hyperparameters & metadata
 ]
 
 
@@ -54,7 +54,9 @@ def download_models(repo_id: str = DEFAULT_REPO, local_dir: str = DEFAULT_DEST):
 
 def verify_models(local_dir: str = DEFAULT_DEST):
     """Verify that all expected model files are present after download."""
-    missing = [f for f in EXPECTED_FILES if not os.path.isfile(os.path.join(local_dir, f))]
+    missing = [
+        f for f in EXPECTED_FILES if not os.path.isfile(os.path.join(local_dir, f))
+    ]
     if missing:
         print(f"WARNING: Missing model files: {missing}")
         return False
@@ -67,12 +69,14 @@ if __name__ == "__main__":
         description="Download CYOA pre-trained models from HuggingFace Hub"
     )
     parser.add_argument(
-        "--repo", default=DEFAULT_REPO,
-        help=f"HuggingFace repo slug (default: {DEFAULT_REPO})"
+        "--repo",
+        default=DEFAULT_REPO,
+        help=f"HuggingFace repo slug (default: {DEFAULT_REPO})",
     )
     parser.add_argument(
-        "--dest", default=DEFAULT_DEST,
-        help=f"Local download directory (default: {DEFAULT_DEST})"
+        "--dest",
+        default=DEFAULT_DEST,
+        help=f"Local download directory (default: {DEFAULT_DEST})",
     )
     args = parser.parse_args()
 

@@ -33,11 +33,36 @@ import numpy as np
 
 # RTF metadata keys — must match dataset.py ALERT_META_KEYS exactly
 ALERT_META_KEYS = [
-    "ra", "dec", "magpsf", "sigmapsf", "chipsf", "magap", "sigmagap",
-    "distnr", "magnr", "sigmagnr", "chinr", "sharpnr", "sky", "magdiff",
-    "fwhm", "classtar", "mindtoedge", "magfromlim", "seeratio", "aimage",
-    "bimage", "aimagerat", "bimagerat", "nneg", "nbad", "rb", "ssdistnr",
-    "ssmagnr", "sumrat", "scorr",
+    "ra",
+    "dec",
+    "magpsf",
+    "sigmapsf",
+    "chipsf",
+    "magap",
+    "sigmagap",
+    "distnr",
+    "magnr",
+    "sigmagnr",
+    "chinr",
+    "sharpnr",
+    "sky",
+    "magdiff",
+    "fwhm",
+    "classtar",
+    "mindtoedge",
+    "magfromlim",
+    "seeratio",
+    "aimage",
+    "bimage",
+    "aimagerat",
+    "bimagerat",
+    "nneg",
+    "nbad",
+    "rb",
+    "ssdistnr",
+    "ssmagnr",
+    "sumrat",
+    "scorr",
 ]
 
 STAMP_SIZE = 63
@@ -47,6 +72,7 @@ FID_TO_BAND = {1: "ztfg", 2: "ztfr", 3: "ztfi"}
 def decode_stamp(stamp_bytes):
     """Decode a gzip-compressed FITS stamp to a numpy array."""
     from astropy.io import fits
+
     decompressed = gzip.decompress(stamp_bytes)
     with fits.open(io.BytesIO(decompressed), ignore_missing_simple=True) as hdu:
         return hdu[0].data.astype(np.float32)
@@ -113,8 +139,12 @@ def build_tensor(alerts):
     # Photometry
     try:
         fids = np.array([a["candidate"]["fid"] for a in alerts])
-        magpsf = np.array([float(a["candidate"]["magpsf"]) for a in alerts], dtype=np.float32)
-        sigmapsf = np.array([float(a["candidate"]["sigmapsf"]) for a in alerts], dtype=np.float32)
+        magpsf = np.array(
+            [float(a["candidate"]["magpsf"]) for a in alerts], dtype=np.float32
+        )
+        sigmapsf = np.array(
+            [float(a["candidate"]["sigmapsf"]) for a in alerts], dtype=np.float32
+        )
     except Exception:
         return None
 
@@ -187,15 +217,21 @@ def process_avro_file(task):
             x_merged = np.concatenate([existing["x"], x_new], axis=0)
             img_merged = np.concatenate([existing["images"], img_new], axis=0)
             hi_merged = np.concatenate([existing["has_image"], hi_new], axis=0)
-            np.savez_compressed(out_path, x=x_merged, images=img_merged,
-                                has_image=hi_merged, oid=np.bytes_(oid))
+            np.savez_compressed(
+                out_path,
+                x=x_merged,
+                images=img_merged,
+                has_image=hi_merged,
+                oid=np.bytes_(oid),
+            )
         else:
             result = build_tensor(oid_alerts)
             if result is None:
                 continue
             x, images, has_image = result
-            np.savez_compressed(out_path, x=x, images=images,
-                                has_image=has_image, oid=np.bytes_(oid))
+            np.savez_compressed(
+                out_path, x=x, images=images, has_image=has_image, oid=np.bytes_(oid)
+            )
             written += 1
 
     return f"done:{written}"
@@ -205,18 +241,25 @@ def main():
     parser = argparse.ArgumentParser(
         description="Ingest raw UW ZTF tarball Avro alerts → unlabelled .npz tensors"
     )
-    parser.add_argument("--avro-dir", required=True,
-                        help="Directory containing extracted .avro files from the UW tarball")
-    parser.add_argument("--output-dir", required=True,
-                        help="Output directory for .npz files")
-    parser.add_argument("--workers", type=int, default=8,
-                        help="Number of parallel workers")
+    parser.add_argument(
+        "--avro-dir",
+        required=True,
+        help="Directory containing extracted .avro files from the UW tarball",
+    )
+    parser.add_argument(
+        "--output-dir", required=True, help="Output directory for .npz files"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=8, help="Number of parallel workers"
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     avro_files = sorted(Path(args.avro_dir).rglob("*.avro"))
-    print(f"Found {len(avro_files)} .avro files in {args.avro_dir} (searched recursively)")
+    print(
+        f"Found {len(avro_files)} .avro files in {args.avro_dir} (searched recursively)"
+    )
 
     tasks = [(str(p), args.output_dir) for p in avro_files]
 
@@ -243,7 +286,7 @@ def main():
                 if (i + 1) % 1000 == 0:
                     print(f"  {i + 1}/{len(tasks)} avro files processed...")
 
-    print(f"\nIngestion complete.")
+    print("\nIngestion complete.")
     print(f"  Objects written: {n_done}")
     print(f"  Files skipped:   {n_skip}")
     out = Path(args.output_dir)

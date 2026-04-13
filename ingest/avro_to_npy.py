@@ -24,7 +24,6 @@ Usage:
 
 import argparse
 import csv
-import os
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -77,10 +76,22 @@ def process_avro_file(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AVRO → alerts.npy converter for UW ZTF tarballs")
-    parser.add_argument("--avro-dir", required=True, help="Path to extracted AVRO files (flat or nested)")
-    parser.add_argument("--output-dir", required=True, help="Output root for {obj_id}/alerts.npy structure")
-    parser.add_argument("--workers", type=int, default=8, help="Number of parallel workers")
+    parser = argparse.ArgumentParser(
+        description="AVRO → alerts.npy converter for UW ZTF tarballs"
+    )
+    parser.add_argument(
+        "--avro-dir",
+        required=True,
+        help="Path to extracted AVRO files (flat or nested)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Output root for {obj_id}/alerts.npy structure",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=8, help="Number of parallel workers"
+    )
     args = parser.parse_args()
 
     avro_dir = Path(args.avro_dir)
@@ -112,16 +123,22 @@ def main():
             else:
                 skipped += 1
             if (i + 1) % 1000 == 0:
-                print(f"  {i+1}/{len(tasks)} — done={len(done_ids)}, skipped={skipped}")
+                print(
+                    f"  {i + 1}/{len(tasks)} — done={len(done_ids)}, skipped={skipped}"
+                )
     else:
         with Pool(args.workers) as pool:
-            for i, (status, result) in enumerate(pool.imap_unordered(process_avro_file, tasks, chunksize=50)):
+            for i, (status, result) in enumerate(
+                pool.imap_unordered(process_avro_file, tasks, chunksize=50)
+            ):
                 if status == "done":
                     done_ids.append(result)
                 else:
                     skipped += 1
                 if (i + 1) % 1000 == 0:
-                    print(f"  {i+1}/{len(tasks)} — done={len(done_ids)}, skipped={skipped}")
+                    print(
+                        f"  {i + 1}/{len(tasks)} — done={len(done_ids)}, skipped={skipped}"
+                    )
 
     print(f"\nConversion complete: {len(done_ids)} objects written, {skipped} skipped")
 
