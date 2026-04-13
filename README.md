@@ -1,51 +1,48 @@
 # Choose Your Own Anomaly (CYOA) Pipeline
 
-This repository contains an end-to-end active learning anomaly detection pipeline for time-domain astronomy (specifically the Zwicky Transient Facility). It leverages Representation-Conditioned Translate-and-Fill (RTF) autoencoders for rapid candidate filtering, Bayesian light curve fitting for physics extraction, and Large Language Models (LLMs) for real-time scientific triage and reporting.
+An end-to-end active learning anomaly detection pipeline for time-domain astronomy (ZTF). It uses RTF autoencoders for rapid candidate filtering, Bayesian light curve fitting for physics extraction, and LLMs for real-time scientific triage and reporting.
+
+> **SkyPortal UI Integration:** The frontend React widget (`CYOAWidget.jsx`) is being developed as a separate contribution to the main SkyPortal repository.
+> **WIP Pull Request:** [skyportal/skyportal#6068](https://github.com/skyportal/skyportal/pull/6068)
 
 ---
 
-## 🛠️ Pipeline Architecture & Execution
+## Pipeline Architecture & Execution
 
-The pipeline is designed to run in an HPC environment (like NCSA Delta) using SLURM. It sequentially executes 5 modular stages:
+The pipeline is designed to run in an HPC environment (NCSA Delta) using SLURM. It executes 4 modular stages sequentially:
 
-### 1. Ingest (`1_ingest/`)
-Connects to nightly ZTF archive tarballs, unpacks heavily nested Avro files, and structures them into contiguous `alerts.npy` arrays for fast sequential reads.
+### Ingest (`ingest/`)
+Connects to nightly ZTF archive tarballs from `ztf.uw.edu`, unpacks Avro files, and structures them into contiguous `alerts.npy` arrays for fast sequential reads.
 
 **To run manually:**
 ```bash
-# Provide the YYYYMMDD date format you want to ingest
-sbatch 1_ingest/slurm_unpack.sh 20260408
+sbatch ingest/slurm_unpack.sh 20260408
 ```
 
-### 2. Mass Inference (`2_mass_inference/`)
-Sweeps an RTF image-conditioned autoencoder over 150,000+ objects per night using multi-GPU batches. Calculates real-time anomaly scores via Isolation Forest and reconstruction thresholding to flag the top 5% of all transients.
+### Mass Inference (`inference/`)
+Sweeps the RTF autoencoder over 150,000+ objects per night using multi-GPU batches. Calculates anomaly scores via Isolation Forest and reconstruction thresholding to flag the top 5% of transients.
 
 **To run manually:**
 ```bash
-# This requires a GPU partition (e.g., A100 or A40)
-sbatch 2_mass_inference/slurm_mass_infer.sh 20260408
+sbatch inference/slurm_mass_infer.sh 20260408
 ```
 
-### 3. Precision Fitting (`3_precision_fitting/`)
-Passes the anomalous targets to an integrated Rust-based Bayesian physical modeling backend (`boom-fit-batch`). Extracts thermal evolution, rise times, cooling rates, and standardized constraints (e.g. `dm15`, TDE decay power-law slopes).
+### Precision Fitting (`precision_fitting/`)
+Passes anomalous targets to the Rust-based Bayesian physical modeling backend (`boom-fit-batch`). Extracts thermal evolution, rise times, cooling rates, and standardized constraints (e.g. `dm15`, TDE decay power-law slopes).
 
 **To run manually:**
 ```bash
-# The Rust binary will compile automatically if not found
-sbatch 3_precision_fitting/slurm_precision_fit.sh 20260408
+sbatch precision_fitting/slurm_precision_fit.sh 20260408
 ```
 
-### 4. LLM Triage (`4_llm_triage/`)
-Transforms the extracted physics parameters into an expert-level scientific context prompt. Sends the objects to an LLM (e.g. Llama-3.3-70B) for 10-class transient classification, confidence scoring, and scientific argumentation.
+### LLM Triage (`triage/`)
+Transforms extracted physics parameters into expert-level scientific context prompts. Sends objects to an LLM (Llama-3.3-70B) for 10-class transient classification, confidence scoring, and scientific reasoning.
 
 **To run manually:**
 ```bash
-source /path/to/your/env/bin/activate
-pip install groq
-
 export GROQ_API_KEY="your_api_key_here"
 
-python 4_llm_triage/triage.py \
+python triage/triage.py \
     --json-dir /work/hdd/bcrv/kmajithia/sweep_results/20260408/applecider/json \
     --anomaly-csv /work/hdd/bcrv/kmajithia/sweep_results/20260408/threshold_anomalies.csv \
     --output /work/hdd/bcrv/kmajithia/sweep_results/20260408/triage_verdicts.jsonl \
@@ -53,33 +50,41 @@ python 4_llm_triage/triage.py \
     --top-n 50
 ```
 
-### 5. Integration & Active Learning (`5_active_learning/`)
-Pushes the vetted anomalies to the UI layer using the REST API. Human reviewers inspect these targets and provide binary feedback tags natively inside the Fritz app. The `retrain.py` loop periodically retrieves these annotations to automatically synthesize new datasets (combining human clicks, LLM reviews, and statistical pseudo-labels) to update the Isolation Forest decision boundaries seamlessly using `HistGradientBoosting`.
+### Active Learning (`active_learning/`)
+Pushes vetted anomalies into the Fritz SkyPortal database via `POST /api/sources/{oid}/annotations`. Human reviewers provide feedback natively inside the Fritz interface. The `retrain.py` loop periodically sweeps those annotations to synthesize new training datasets (human clicks, LLM reviews, and statistical pseudo-labels) and update the per-group classifiers using `HistGradientBoosting`.
 
-### 6. SkyPortal React UI (`6_skyportal_ui_patch/`)
-Contains the frontend `CYOAWidget.jsx` module designed to inject cleanly into the SkyPortal interface. This React component renders the AI astrophysics reasoning alongside the Active Learning triage buttons. 
+**To run manually:**
+```bash
+export FRITZ_TOKEN="your_fritz_token"
 
-## 🚀 Fully Automated Nightly Run
+python active_learning/push_to_skyportal.py --verdicts triage_verdicts.jsonl
+python active_learning/retrain.py --group-id 1947
+```
 
-Instead of manually running each stage, you can orchestrate the entire pipeline end-to-end to run unattended. 
+---
+
+## Fully Automated Nightly Run
 
 Set your environment variables:
 ```bash
 export GROQ_API_KEY="your_groq_key"
+export FRITZ_TOKEN="your_fritz_token"
 ```
 
-Then simply execute the master orchestrator script for the current date:
+Then execute the master orchestrator for the current date:
 ```bash
 chmod +x run_nightly_cron.sh
 ./run_nightly_cron.sh
 ```
-This script acts as a master SLURM dispatcher, waiting for each HPC job to complete before launching the subsequent dependent Python scripts.
+
+This script acts as a SLURM dispatcher, waiting for each HPC job to complete before launching the next stage.
 
 ---
 
 ## Environment Setup
-Ensure you have the required dependencies in your Python environment:
+
 ```bash
 pip install numpy pandas scikit-learn pyarrow groq requests fastavro
 ```
-Cargo (Rust) is required for compiling the AppleCiDEr fitting engine in Stage 3.
+
+Cargo (Rust) is required for compiling the AppleCiDEr fitting engine in the precision fitting stage.
