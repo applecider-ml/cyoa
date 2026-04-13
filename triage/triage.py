@@ -98,6 +98,7 @@ Respond with a JSON object with exactly these keys:
 
 # ── Feature extraction ───────────────────────────────────────────────────────
 
+
 def safe_fmt(val, fmt=".2f", fallback="unknown"):
     """Format a float value safely, handling None."""
     if val is None:
@@ -158,6 +159,7 @@ def extract_features(fitting: dict, oid: str, rank: int, score: float) -> str:
 
 # ── Groq inference ───────────────────────────────────────────────────────────
 
+
 def triage_anomaly(client: Groq, prompt: str, model: str, retries: int = 3) -> dict:
     """Send a single anomaly prompt to Groq and return the parsed JSON verdict."""
     for attempt in range(retries):
@@ -176,8 +178,8 @@ def triage_anomaly(client: Groq, prompt: str, model: str, retries: int = 3) -> d
             return json.loads(raw)
         except Exception as e:
             if attempt < retries - 1:
-                print(f"  Retry {attempt+1}/{retries}: {e}")
-                time.sleep(2 ** attempt)
+                print(f"  Retry {attempt + 1}/{retries}: {e}")
+                time.sleep(2**attempt)
             else:
                 return {"error": str(e), "raw": ""}
     return {}
@@ -185,33 +187,51 @@ def triage_anomaly(client: Groq, prompt: str, model: str, retries: int = 3) -> d
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Phase 5.4: LLM Triage of ZTF Anomalies")
-    parser.add_argument("--json-dir", required=True,
-                        help="Directory containing {obj_id}.json AppleCiDEr results")
-    parser.add_argument("--anomaly-csv", required=True,
-                        help="threshold_anomalies.csv from Phase 5.2")
-    parser.add_argument("--output", required=True,
-                        help="Output .jsonl file (one verdict per line)")
-    parser.add_argument("--api-key", required=True,
-                        help="Groq API key")
-    parser.add_argument("--top-n", type=int, default=50,
-                        help="Triage only the top N anomalies by rank (default: 50)")
-    parser.add_argument("--model", default="llama-3.3-70b-versatile",
-                        help="Groq model to use (default: llama-3.3-70b-versatile)")
-    parser.add_argument("--delay", type=float, default=0.5,
-                        help="Seconds to wait between API calls (default: 0.5)")
+    parser = argparse.ArgumentParser(
+        description="Phase 5.4: LLM Triage of ZTF Anomalies"
+    )
+    parser.add_argument(
+        "--json-dir",
+        required=True,
+        help="Directory containing {obj_id}.json AppleCiDEr results",
+    )
+    parser.add_argument(
+        "--anomaly-csv", required=True, help="threshold_anomalies.csv from Phase 5.2"
+    )
+    parser.add_argument(
+        "--output", required=True, help="Output .jsonl file (one verdict per line)"
+    )
+    parser.add_argument("--api-key", required=True, help="Groq API key")
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=50,
+        help="Triage only the top N anomalies by rank (default: 50)",
+    )
+    parser.add_argument(
+        "--model",
+        default="llama-3.3-70b-versatile",
+        help="Groq model to use (default: llama-3.3-70b-versatile)",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.5,
+        help="Seconds to wait between API calls (default: 0.5)",
+    )
     args = parser.parse_args()
 
     client = Groq(api_key=args.api_key)
     json_dir = Path(args.json_dir)
 
     # 1. Read anomaly rankings from CSV
-    print(f"\n{'='*60}")
-    print(f"Phase 5.4: LLM Triage")
+    print(f"\n{'=' * 60}")
+    print("Phase 5.4: LLM Triage")
     print(f"Model      : {args.model}")
     print(f"Top-N      : {args.top_n}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     print(f"[1/3] Loading anomaly rankings from {args.anomaly_csv}...")
     anomaly_rows = []
@@ -228,7 +248,7 @@ def main():
     print(f"  Loaded {len(anomaly_rows)} unique anomalies.")
 
     # 2. Match to JSON fitting results
-    print(f"\n[2/3] Matching anomalies to AppleCiDEr fitting results...")
+    print("\n[2/3] Matching anomalies to AppleCiDEr fitting results...")
     matched = []
     for row in anomaly_rows:
         oid = row["oid"]
@@ -237,15 +257,19 @@ def main():
             try:
                 with open(json_path) as f:
                     fitting = json.load(f)
-                matched.append({
-                    "oid": oid,
-                    "rank": int(row["rank"]),
-                    "score": float(row["combined_score"]),
-                    "fitting": fitting,
-                })
+                matched.append(
+                    {
+                        "oid": oid,
+                        "rank": int(row["rank"]),
+                        "score": float(row["combined_score"]),
+                        "fitting": fitting,
+                    }
+                )
             except Exception as e:
                 print(f"  WARN: Could not read {json_path}: {e}")
-    print(f"  Matched: {len(matched)} / {len(anomaly_rows)} anomalies have fitting results.")
+    print(
+        f"  Matched: {len(matched)} / {len(anomaly_rows)} anomalies have fitting results."
+    )
 
     if not matched:
         print("ERROR: No matched anomalies. Did Phase 5.3 complete successfully?")
@@ -259,11 +283,13 @@ def main():
     with open(args.output, "w") as out_f:
         for i, item in enumerate(matched):
             oid = item["oid"]
-            print(f"  [{i+1:3d}/{len(matched)}] {oid} (rank #{item['rank']})...", end=" ", flush=True)
-
-            prompt = extract_features(
-                item["fitting"], oid, item["rank"], item["score"]
+            print(
+                f"  [{i + 1:3d}/{len(matched)}] {oid} (rank #{item['rank']})...",
+                end=" ",
+                flush=True,
             )
+
+            prompt = extract_features(item["fitting"], oid, item["rank"], item["score"])
             verdict = triage_anomaly(client, prompt, args.model)
 
             # Augment with metadata
@@ -275,7 +301,9 @@ def main():
             out_f.flush()
 
             if "error" not in verdict:
-                print(f"{verdict.get('primary_class', '?')} ({verdict.get('confidence', '?')})")
+                print(
+                    f"{verdict.get('primary_class', '?')} ({verdict.get('confidence', '?')})"
+                )
                 success += 1
             else:
                 print(f"ERROR: {verdict.get('error', 'unknown')}")
@@ -284,12 +312,12 @@ def main():
             if args.delay > 0 and i < len(matched) - 1:
                 time.sleep(args.delay)
 
-    print(f"\n{'='*60}")
-    print(f"TRIAGE COMPLETE")
+    print(f"\n{'=' * 60}")
+    print("TRIAGE COMPLETE")
     print(f"  Succeeded: {success}")
     print(f"  Failed:    {failed}")
     print(f"  Output:    {args.output}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Quick summary
     print("\nClassification Summary:")
@@ -302,7 +330,10 @@ def main():
                 pass
 
     from collections import Counter
-    classes = Counter(v.get("primary_class", "Unknown") for v in verdicts if "error" not in v)
+
+    classes = Counter(
+        v.get("primary_class", "Unknown") for v in verdicts if "error" not in v
+    )
     for cls, count in classes.most_common():
         print(f"  {cls:30s}: {count}")
 

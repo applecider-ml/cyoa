@@ -30,17 +30,16 @@ Output:
 
 import argparse
 import csv
-import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
 
 
 # ── Photometry extraction ─────────────────────────────────────────────────────
+
 
 def extract_photometry_csv(alerts: np.ndarray, out_path: str) -> bool:
     """
@@ -49,17 +48,19 @@ def extract_photometry_csv(alerts: np.ndarray, out_path: str) -> bool:
     Returns True if at least 5 valid historical rows were written.
     """
     rows = []
-    
+
     def add_cand(cand):
         try:
-            jd       = float(cand.get("jd"))
-            magpsf   = float(cand.get("magpsf"))
+            jd = float(cand.get("jd"))
+            magpsf = float(cand.get("magpsf"))
             sigmapsf = float(cand.get("sigmapsf"))
-            fid      = int(cand.get("fid"))
-            
+            fid = int(cand.get("fid"))
+
             # Filter non-detections and bogus limits
             if 15.0 < magpsf < 25.0 and 0 < sigmapsf <= 2.0:
-                rows.append({"jd": jd, "magpsf": magpsf, "sigmapsf": sigmapsf, "fid": fid})
+                rows.append(
+                    {"jd": jd, "magpsf": magpsf, "sigmapsf": sigmapsf, "fid": fid}
+                )
         except (KeyError, TypeError, ValueError):
             pass
 
@@ -67,11 +68,13 @@ def extract_photometry_csv(alerts: np.ndarray, out_path: str) -> bool:
         # 1. Latest detection
         if "candidate" in a and a["candidate"]:
             add_cand(a["candidate"])
-            
+
         # 2. Historical detections (UW packets bundle ~30 days of history here)
         if "prv_candidates" in a and a["prv_candidates"]:
             for p in a["prv_candidates"]:
-                if p.get("magpsf") is not None:  # ignore upper limits where magpsf is null
+                if (
+                    p.get("magpsf") is not None
+                ):  # ignore upper limits where magpsf is null
                     add_cand(p)
 
     if len(rows) < 5:
@@ -85,7 +88,9 @@ def extract_photometry_csv(alerts: np.ndarray, out_path: str) -> bool:
     return True
 
 
-def prepare_photometry(oids: list[str], npy_dir: str, photo_dir: str) -> tuple[list[str], list[str]]:
+def prepare_photometry(
+    oids: list[str], npy_dir: str, photo_dir: str
+) -> tuple[list[str], list[str]]:
     """
     For each OID, read alerts.npy and write photometry.csv to a flat staging
     directory that boom-fit-batch can read via its CSV fallback path:
@@ -95,7 +100,7 @@ def prepare_photometry(oids: list[str], npy_dir: str, photo_dir: str) -> tuple[l
     ready, skipped = [], []
     for i, oid in enumerate(oids):
         npy_path = Path(npy_dir) / oid / "alerts.npy"
-        out_dir  = Path(photo_dir) / oid
+        out_dir = Path(photo_dir) / oid
         out_path = out_dir / "photometry.csv"
 
         if out_path.exists():
@@ -120,12 +125,15 @@ def prepare_photometry(oids: list[str], npy_dir: str, photo_dir: str) -> tuple[l
             skipped.append(oid)
 
         if (i + 1) % 50 == 0:
-            print(f"  Prepared {i + 1}/{len(oids)} — ready={len(ready)}, skipped={len(skipped)}")
+            print(
+                f"  Prepared {i + 1}/{len(oids)} — ready={len(ready)}, skipped={len(skipped)}"
+            )
 
     return ready, skipped
 
 
 # ── Sources CSV writer ────────────────────────────────────────────────────────
+
 
 def write_sources_csv(oids: list[str], path: str, split: str = "infer") -> None:
     """Write the obj_id,split CSV that boom-fit-batch --sources expects."""
@@ -138,30 +146,47 @@ def write_sources_csv(oids: list[str], path: str, split: str = "infer") -> None:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Phase 5.3: Precision AppleCiDEr Fitting")
-    parser.add_argument("--anomaly-csv", required=True,
-                        help="threshold_anomalies.csv from Phase 5.2")
-    parser.add_argument("--npy-dir", required=True,
-                        help="Directory containing {obj_id}/alerts.npy")
-    parser.add_argument("--binary", required=True,
-                        help="Path to compiled boom-fit-batch binary")
-    parser.add_argument("--output-dir", required=True,
-                        help="Where to write {obj_id}.json fitting results")
-    parser.add_argument("--top-n", type=int, default=500,
-                        help="Process only the top N anomalies by rank (default: 500)")
-    parser.add_argument("--threads", type=int, default=16,
-                        help="Rayon threads for the Rust binary (default: 16)")
+    parser = argparse.ArgumentParser(
+        description="Phase 5.3: Precision AppleCiDEr Fitting"
+    )
+    parser.add_argument(
+        "--anomaly-csv", required=True, help="threshold_anomalies.csv from Phase 5.2"
+    )
+    parser.add_argument(
+        "--npy-dir", required=True, help="Directory containing {obj_id}/alerts.npy"
+    )
+    parser.add_argument(
+        "--binary", required=True, help="Path to compiled boom-fit-batch binary"
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Where to write {obj_id}.json fitting results",
+    )
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=500,
+        help="Process only the top N anomalies by rank (default: 500)",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=16,
+        help="Rayon threads for the Rust binary (default: 16)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     # ── 1. Read top N anomalies ───────────────────────────────────────────────
-    print(f"\n{'='*60}")
-    print(f"Phase 5.3: Precision AppleCiDEr Fitting")
+    print(f"\n{'=' * 60}")
+    print("Phase 5.3: Precision AppleCiDEr Fitting")
     print(f"Top-N      : {args.top_n}")
     print(f"Threads    : {args.threads}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     print(f"[1/4] Reading top {args.top_n} anomalies from {args.anomaly_csv}...")
     top_oids = []
@@ -178,7 +203,9 @@ def main():
     photo_staging = os.path.join(args.output_dir, "_photometry_staging")
     print(f"\n[2/4] Extracting photometry from alerts.npy → {photo_staging}...")
     ready_oids, skipped_oids = prepare_photometry(top_oids, args.npy_dir, photo_staging)
-    print(f"  Ready: {len(ready_oids):,}  |  Skipped (insufficient detections): {len(skipped_oids):,}")
+    print(
+        f"  Ready: {len(ready_oids):,}  |  Skipped (insufficient detections): {len(skipped_oids):,}"
+    )
 
     if not ready_oids:
         print("ERROR: No sources ready for fitting. Exiting.")
@@ -196,10 +223,14 @@ def main():
 
     cmd = [
         args.binary,
-        "--input-dir",  photo_staging,
-        "--sources",    sources_csv,
-        "--output-dir", results_dir,
-        "--threads",    str(args.threads),
+        "--input-dir",
+        photo_staging,
+        "--sources",
+        sources_csv,
+        "--output-dir",
+        results_dir,
+        "--threads",
+        str(args.threads),
     ]
 
     print(f"\n[4/4] Running boom-fit-batch on {len(ready_oids)} anomalies...")
@@ -214,13 +245,13 @@ def main():
 
     # ── Summary ───────────────────────────────────────────────────────────────
     json_files = list(Path(results_dir).glob("*.json"))
-    print(f"\n{'='*60}")
-    print(f"FITTING COMPLETE")
+    print(f"\n{'=' * 60}")
+    print("FITTING COMPLETE")
     print(f"  Sources submitted : {len(ready_oids):,}")
     print(f"  JSON files written: {len(json_files):,}")
     print(f"  Output dir        : {results_dir}")
     print(f"  Next step         : Phase 5.4 — LLM triage on {results_dir}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

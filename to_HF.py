@@ -30,9 +30,9 @@ DEFAULT_REPO = "applecider-ml/cyoa-models"
 
 # Files to upload from the model directory
 UPLOAD_MANIFEST = [
-    "best_model.pt",          # RTF Autoencoder checkpoint
-    "isolation_forest.pkl",   # Fitted Isolation Forest (if present)
-    "summary.json",           # Training metrics & hyperparameters
+    "best_model.pt",  # RTF Autoencoder checkpoint
+    "isolation_forest.pkl",  # Fitted Isolation Forest (if present)
+    "summary.json",  # Training metrics & hyperparameters
 ]
 
 
@@ -58,11 +58,11 @@ license: mit
 Pre-trained models for the ZTF anomaly detection pipeline.
 
 ## RTF Transformer Autoencoder
-- **Architecture:** Transformer AE, latent_dim={meta.get('latent_dim', 128)}
-- **Parameters:** {meta.get('n_params', 'N/A')}
-- **Training data:** {meta.get('n_train', 'N/A')} ZTF light curves
-- **Best epoch:** {meta.get('best_epoch', 'N/A')}
-- **Band accuracy:** {meta.get('band_acc', 'N/A')}
+- **Architecture:** Transformer AE, latent_dim={meta.get("latent_dim", 128)}
+- **Parameters:** {meta.get("n_params", "N/A")}
+- **Training data:** {meta.get("n_train", "N/A")} ZTF light curves
+- **Best epoch:** {meta.get("best_epoch", "N/A")}
+- **Band accuracy:** {meta.get("band_acc", "N/A")}
 
 ## Isolation Forest
 - Trained on RTF latent embeddings
@@ -115,7 +115,9 @@ def upload_models(model_dir: str, repo_id: str, token: str = None):
         token=token,
     )
 
-    print(f"\nUpload complete: {uploaded} files pushed to https://huggingface.co/{repo_id}")
+    print(
+        f"\nUpload complete: {uploaded} files pushed to https://huggingface.co/{repo_id}"
+    )
 
 
 if __name__ == "__main__":
@@ -123,21 +125,24 @@ if __name__ == "__main__":
         description="Upload trained CYOA models to HuggingFace Hub"
     )
     parser.add_argument(
-        "--model-dir", required=True,
-        help="Path to the directory containing trained model files"
+        "--model-dir",
+        required=True,
+        help="Path to the directory containing trained model files",
     )
     parser.add_argument(
-        "--repo", default=DEFAULT_REPO,
-        help=f"HuggingFace repo slug (default: {DEFAULT_REPO})"
+        "--repo",
+        default=DEFAULT_REPO,
+        help=f"HuggingFace repo slug (default: {DEFAULT_REPO})",
     )
     parser.add_argument(
-        "--token", default=None,
-        help="HuggingFace API token (or set HF_TOKEN env var)"
+        "--token", default=None, help="HuggingFace API token (or set HF_TOKEN env var)"
     )
     args = parser.parse_args()
 
     token = args.token or os.environ.get("HF_TOKEN")
     if not token:
-        print("Warning: No HF token provided. You may need to run: huggingface-cli login")
+        print(
+            "Warning: No HF token provided. You may need to run: huggingface-cli login"
+        )
 
     upload_models(args.model_dir, args.repo, token)
